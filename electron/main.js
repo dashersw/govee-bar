@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage } = require('electron')
 const path = require('path')
 const { createApiClient } = require('../lib/api-client')
