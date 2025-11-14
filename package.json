@@ -1,0 +1,24 @@
+{
+  "name": "govee-bar",
+  "version": "1.0.0",
+  "description": "A menu bar app for managing Govee lights and devices",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test tests/api.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dashersw/govee-bar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "bugs": {
+    "url": "https://github.com/dashersw/govee-bar/issues"
+  },
+  "homepage": "https://github.com/dashersw/govee-bar#readme"
+}
