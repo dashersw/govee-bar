@@ -1,0 +1,368 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 360px;
+  height: 100vh;
+  background: transparent;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-app-region: drag;
+  cursor: move;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.logo-circle {
+  width: 24px;
+  height: 24px;
+  background: #197fe6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.logo-text {
+  line-height: 1;
+}
+
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  -webkit-app-region: no-drag;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Make sure interactive elements are not draggable */
+.app-content * {
+  -webkit-app-region: no-drag;
+}
+
+.app-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-content::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+}
+
+/* Mantine component backgrounds - allow vibrancy to show through */
+.mantine-Stack-root,
+.mantine-Group-root,
+.mantine-Center-root {
+  background: transparent;
+}
+
+/* Mantine overrides for dark translucent theme */
+.mantine-Switch-track {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+}
+
+.mantine-Switch-track[data-checked] {
+  border-color: rgba(59, 130, 246, 0.9);
+  background: transparent;
+}
+
+.mantine-Text-root {
+  color: white;
+}
+
+.mantine-Loader-root {
+  color: rgba(59, 130, 246, 0.8);
+}
+
+/* Scenes Section */
+.scenes-section {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.scenes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.scene-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.scene-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.7);
+  transition: background 0.2s ease;
+}
+
+.scene-icon.scene-active {
+  background: rgba(25, 127, 230, 0.2);
+  color: #197fe6;
+}
+
+.scene-item:hover .scene-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.scene-item:hover .scene-icon.scene-active {
+  background: rgba(25, 127, 230, 0.3);
+}
+
+.scene-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Rooms Section */
+.rooms-section {
+  margin-top: 0;
+}
+
+.rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.room-section {
+  margin-bottom: 0;
+}
+
+.room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px;
+  margin: -4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.room-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.room-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.room-icon-symbol {
+  font-size: 20px;
+  color: #197fe6;
+}
+
+.expand-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s ease;
+}
+
+.room-header:hover .expand-button {
+  color: white;
+}
+
+.room-devices {
+  margin-top: 8px;
+  padding-left: 16px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  margin-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Device Card */
+.device-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.device-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.device-icon {
+  font-size: 24px;
+}
+
+.device-icon.icon-on {
+  color: #197fe6;
+}
+
+.device-icon.icon-off {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Custom Switch */
+.switch-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-track {
+  width: 44px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.switch-track.switch-on {
+  background: #197fe6;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.switch-track.switch-on .switch-thumb {
+  transform: translateX(20px);
+}
+
+/* Device Brightness */
+.device-brightness {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brightness-icon {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.brightness-slider {
+  flex: 1;
+}
+
+/* Footer */
+.app-footer {
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Material Symbols styling */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* Smooth transitions */
+* {
+  transition: color 0.2s ease, opacity 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+

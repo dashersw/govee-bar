@@ -2,8 +2,13 @@
   "name": "govee-bar",
   "version": "1.0.0",
   "description": "A menu bar app for managing Govee lights and devices",
-  "main": "index.js",
+  "main": "electron/main.js",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
     "test": "node --test tests/api.test.js"
   },
   "repository": {
@@ -15,8 +20,21 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@mantine/core": "^7.15.0",
+    "@mantine/hooks": "^7.15.0",
     "axios": "^1.6.0",
-    "mqtt": "^5.14.1"
+    "electron-liquid-glass": "^1.1.1",
+    "mqtt": "^5.14.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.5",
+    "wait-on": "^8.0.1"
   },
   "bugs": {
     "url": "https://github.com/dashersw/govee-bar/issues"
