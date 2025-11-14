@@ -168,4 +168,165 @@ describe('Govee API End-to-End Tests', () => {
       `Device should be back to original state. Expected: ${initialIsOn}, Got: ${finalIsOn} (value: ${finalPowerState})`
     )
   })
+
+  test('should receive device state changes via MQTT', async () => {
+    // Find a light device (one with on_off capability)
+    const devices = await apiClient.fetchDevices()
+    const lightDevice = devices.find(device =>
+      device.capabilities?.some(cap => cap.type === 'devices.capabilities.on_off')
+    )
+
+    assert(lightDevice, 'Should have at least one light device with on_off capability')
+
+    // Get initial state
+    const initialState = await apiClient.fetchDeviceState({ device: lightDevice })
+    const onlineCap = initialState.capabilities.find(cap => cap.instance === 'online')
+    const isOnline = onlineCap?.state?.value === true
+
+    if (!isOnline) {
+      return // Skip the test if device is offline
+    }
+
+    const powerCap = initialState.capabilities.find(cap => cap.instance === 'powerSwitch')
+    assert(powerCap !== undefined, 'Device should have powerSwitch capability')
+
+    const initialPowerState = powerCap.state.value
+    const initialIsOn = initialPowerState === 1 || initialPowerState === '1'
+
+    // Create MQTT client and set up listener
+    const mqttClient = apiClient.createMqttClient()
+    let mqttMessageReceived = false
+    let receivedDeviceState = null
+    let mqttConnected = false
+
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        mqttClient.end()
+        if (!mqttMessageReceived) {
+          reject(new Error('MQTT message not received within timeout'))
+        }
+      }, 30000) // 30 second timeout
+
+      mqttClient.on('connect', () => {
+        mqttConnected = true
+        // Subscribe to topic using GA/{API_KEY} format
+        const topic = `GA/${API_KEY}`
+        mqttClient.subscribe(topic, err => {
+          if (err) {
+            clearTimeout(timeout)
+            mqttClient.end()
+            reject(new Error(`Failed to subscribe to MQTT topic: ${err.message}`))
+            return
+          }
+
+          // Wait a moment for subscription to be ready, then toggle the device
+          setTimeout(async () => {
+            const targetState = !initialIsOn
+            try {
+              await apiClient.toggleDevicePower({ device: lightDevice, state: targetState })
+            } catch (err) {
+              clearTimeout(timeout)
+              mqttClient.end()
+              reject(new Error(`Failed to toggle device: ${err.message}`))
+            }
+          }, 2000)
+        })
+      })
+
+      mqttClient.on('message', (topic, message) => {
+        try {
+          const messageStr = message.toString()
+          const data = JSON.parse(messageStr)
+
+          // Check if this message is for our device (device ID might be formatted differently)
+          const messageDeviceId = data.device
+          const ourDeviceId = lightDevice.device
+          const matches =
+            messageDeviceId === ourDeviceId ||
+            messageDeviceId === ourDeviceId.replace(/:/g, '') ||
+            ourDeviceId === messageDeviceId.replace(/:/g, '')
+
+          if (matches && data.capabilities) {
+            // Look for powerSwitch capability update
+            let powerCapUpdate = null
+
+            // Try to find powerSwitch capability with state.value
+            for (const cap of data.capabilities) {
+              if (cap.instance === 'powerSwitch') {
+                // Check different state formats
+                if (cap.state) {
+                  // Handle both state.value (single value) and state (array) formats
+                  if (cap.state.value !== undefined && !Array.isArray(cap.state.value)) {
+                    powerCapUpdate = cap
+                    break
+                  } else if (Array.isArray(cap.state) && cap.state.length > 0) {
+                    // Handle array format: state: [{ name: "...", value: ... }]
+                    const stateValue = cap.state[0].value
+                    if (stateValue !== undefined) {
+                      powerCapUpdate = { ...cap, state: { value: stateValue } }
+                      break
+                    }
+                  }
+                }
+              }
+            }
+
+            if (powerCapUpdate && powerCapUpdate.state.value !== undefined) {
+              mqttMessageReceived = true
+              receivedDeviceState = powerCapUpdate.state.value
+              clearTimeout(timeout)
+              mqttClient.end()
+
+              // Verify the state matches what we set
+              const receivedIsOn = receivedDeviceState === 1 || receivedDeviceState === '1'
+              assert.strictEqual(
+                receivedIsOn,
+                !initialIsOn,
+                `MQTT should report device is ${
+                  !initialIsOn ? 'on' : 'off'
+                }. Got: ${receivedIsOn} (value: ${receivedDeviceState})`
+              )
+
+              // Toggle back to original state
+              apiClient
+                .toggleDevicePower({ device: lightDevice, state: initialIsOn })
+                .then(() => {
+                  resolve()
+                })
+                .catch(err => {
+                  reject(new Error(`Failed to restore device state: ${err.message}`))
+                })
+              return
+            }
+          }
+        } catch (err) {
+          // Ignore parse errors, might be other message types
+        }
+      })
+
+      mqttClient.on('error', err => {
+        console.log('MQTT error details:', err)
+        clearTimeout(timeout)
+        mqttClient.end()
+        reject(new Error(`MQTT error: ${err.message}`))
+      })
+
+      mqttClient.on('close', () => {
+        console.log('MQTT connection closed')
+      })
+
+      mqttClient.on('offline', () => {
+        console.log('MQTT client went offline')
+      })
+
+      // If connection fails
+      setTimeout(() => {
+        if (!mqttConnected) {
+          clearTimeout(timeout)
+          mqttClient.end()
+          reject(new Error('MQTT connection timeout'))
+        }
+      }, 10000)
+    })
+  })
 })
