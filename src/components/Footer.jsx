@@ -10,14 +10,17 @@ export function Footer({ onRefresh }) {
           size="xs"
           leftSection={<span className="material-symbols-outlined" style={{ fontSize: '16px' }}>refresh</span>}
           onClick={onRefresh}
-          styles={{ root: { color: 'rgba(255, 255, 255, 0.6)' } }}
+          styles={{ root: { color: 'var(--text-secondary)' } }}
         >
           Refresh
         </Button>
         <Text
           size="xs"
-          c="blue"
-          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+          style={{ 
+            color: 'var(--primary-color)', 
+            cursor: 'pointer', 
+            textDecoration: 'underline' 
+          }}
           onClick={() => {
             // Handle open full app
             console.log('Open full app')

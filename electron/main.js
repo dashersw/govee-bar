@@ -1,18 +1,122 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage } = require('electron')
+require('dotenv').config()
+
+const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage, nativeTheme } = require('electron')
 const path = require('path')
 const { createApiClient } = require('../lib/api-client')
 
-const API_KEY = process.env.GOVEE_API_KEY
+// Initialize electron-store for settings (using dynamic import for ES Module)
+let store = null
+let Store = null
 
-if (!API_KEY) {
-  console.error('Error: GOVEE_API_KEY environment variable is required')
-  app.quit()
+async function initializeStore() {
+  if (!Store) {
+    const StoreModule = await import('electron-store')
+    Store = StoreModule.default
+    store = new Store({
+      name: 'govee-bar-settings',
+      defaults: {
+        apiKey: null
+      }
+    })
+  }
+  return store
 }
 
-const apiClient = createApiClient(API_KEY)
+// Import electron-liquid-glass for enhanced translucent effects (macOS only)
+let liquidGlass = null
+if (process.platform === 'darwin') {
+  try {
+    liquidGlass = require('electron-liquid-glass')
+    console.log('✓ electron-liquid-glass loaded successfully')
+  } catch (error) {
+    console.warn('✗ electron-liquid-glass not available:', error.message)
+  }
+} else {
+  console.log('ℹ electron-liquid-glass skipped (not macOS)')
+}
+
+// Get API key from store or fallback to .env
+async function getApiKey() {
+  if (!store) {
+    await initializeStore()
+  }
+  const storedApiKey = store ? store.get('apiKey') : null
+  return storedApiKey || process.env.GOVEE_API_KEY || null
+}
+
+// Initialize API client
+let apiClient = null
+
+function createClient(apiKey) {
+  if (!apiKey) {
+    throw new Error('API key is required')
+  }
+
+  const client = createApiClient(apiKey)
+  if (!client || typeof client.fetchDevices !== 'function') {
+    throw new Error('Failed to create API client')
+  }
+
+  return client
+}
+
+async function initializeApiClient(apiKeyOverride = null) {
+  const apiKey = apiKeyOverride ?? (await getApiKey())
+  if (!apiKey) {
+    console.warn('⚠ No API key found. Please set it in settings.')
+    apiClient = null
+    return false
+  }
+
+  try {
+    apiClient = createClient(apiKey)
+    console.log('✓ API client initialized successfully')
+    return true
+  } catch (error) {
+    console.error('Error creating API client:', error.message)
+    apiClient = null
+    return false
+  }
+}
+
+async function validateApiKeyInput(apiKeyInput) {
+  const trimmedApiKey = apiKeyInput?.trim()
+
+  if (!trimmedApiKey) {
+    throw new Error('API key cannot be empty')
+  }
+
+  const client = createClient(trimmedApiKey)
+
+  try {
+    await client.fetchDevices()
+    console.log('✓ API key validated successfully')
+  } catch (error) {
+    throw new Error(`Invalid API key: ${error.message}`)
+  }
+
+  return { trimmedApiKey, client }
+}
 
 let mainWindow = null
 let tray = null
+
+function broadcastThemeToRenderer(theme) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.executeJavaScript(`
+      document.documentElement.setAttribute('data-theme', '${theme}');
+    `)
+    mainWindow.webContents.send('theme-changed', theme)
+  }
+  console.log('Theme changed to:', theme)
+}
+
+const handleNativeThemeUpdated = () => {
+  const newTheme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  broadcastThemeToRenderer(newTheme)
+}
+
+nativeTheme.on('updated', handleNativeThemeUpdated)
 
 // Create orange square icon
 function createTrayIcon() {
@@ -27,7 +131,7 @@ function createTrayIcon() {
     canvas[offset + 2] = orange.b // B
     canvas[offset + 3] = 255 // A
   }
-
+  
   return nativeImage.createFromBuffer(canvas, { width: size, height: size })
 }
 
@@ -67,7 +171,11 @@ function positionWindowUnderTray() {
 function createWindow() {
   const { x, y, width: windowWidth, height: windowHeight } = positionWindowUnderTray()
 
-  mainWindow = new BrowserWindow({
+  // Determine vibrancy based on system theme
+  const isDarkMode = nativeTheme.shouldUseDarkColors
+  const vibrancyType = isDarkMode ? 'ultra-dark' : 'light'
+
+  const browserWindowOptions = {
     width: windowWidth,
     height: windowHeight,
     x,
@@ -75,7 +183,6 @@ function createWindow() {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    vibrancy: 'hud',
     visualEffectState: 'active',
     hasShadow: true,
     alwaysOnTop: true,
@@ -87,6 +194,44 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       backgroundThrottling: false
+    }
+  }
+
+  if (!liquidGlass) {
+    browserWindowOptions.vibrancy = vibrancyType
+  }
+
+  mainWindow = new BrowserWindow(browserWindowOptions)
+
+  // Set initial theme attribute and apply translucency effects after load
+  mainWindow.webContents.once('did-finish-load', () => {
+    const currentTheme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+    mainWindow.webContents.executeJavaScript(`
+      document.documentElement.setAttribute('data-theme', '${currentTheme}');
+    `)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('theme-changed', currentTheme)
+    }
+
+    // Apply liquid glass effect after content loads (macOS only)
+    // Using electron-liquid-glass for enhanced translucent effects
+    if (liquidGlass && process.platform === 'darwin') {
+      console.log('Applying liquid glass effect...')
+      try {
+        const glassId = liquidGlass.addView(mainWindow.getNativeWindowHandle(), {
+          cornerRadius: 12, // Match border-radius
+          tintColor: isDarkMode ? [0, 0, 0, 0.3] : [255, 255, 255, 0.2] // Theme-based tint
+        })
+        console.log('✓ Liquid glass effect applied successfully, glassId:', glassId)
+      } catch (error) {
+        console.error('✗ Failed to apply liquid glass effect:', error.message)
+        // Fallback to native vibrancy
+        mainWindow.setVibrancy(vibrancyType)
+        console.log('✓ Fallback to native vibrancy:', vibrancyType)
+      }
+    } else if (!liquidGlass) {
+      console.log('⚠ Liquid glass not available - using native vibrancy:', vibrancyType)
+      mainWindow.setVibrancy(vibrancyType)
     }
   })
 
@@ -124,7 +269,13 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Initialize store first
+  await initializeStore()
+  
+  // Initialize API client
+  await initializeApiClient()
+
   // Create tray icon first
   const icon = createTrayIcon()
   tray = new Tray(icon)
@@ -174,8 +325,33 @@ app.on('before-quit', () => {
 })
 
 // IPC Handlers
+ipcMain.handle('get-api-key', async () => {
+  return await getApiKey()
+})
+
+ipcMain.handle('set-api-key', async (event, apiKeyInput) => {
+  try {
+    const { trimmedApiKey, client } = await validateApiKeyInput(apiKeyInput)
+
+    if (!store) {
+      await initializeStore()
+    }
+
+    store.set('apiKey', trimmedApiKey)
+    apiClient = client
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error setting API key:', error)
+    return { success: false, error: error.message || 'An error occurred while saving the API key' }
+  }
+})
+
 ipcMain.handle('fetch-devices', async () => {
   try {
+    if (!apiClient || typeof apiClient.fetchDevices !== 'function') {
+      throw new Error('API key not set. Please enter your API key in settings.')
+    }
     const devices = await apiClient.fetchDevices()
     // Filter for lights (devices with on_off capability)
     const lights = devices.filter(device =>
@@ -183,33 +359,50 @@ ipcMain.handle('fetch-devices', async () => {
     )
     return { success: true, data: lights }
   } catch (error) {
+    console.error('Error in fetch-devices handler:', error)
     return { success: false, error: error.message }
   }
 })
 
 ipcMain.handle('fetch-device-state', async (event, device) => {
   try {
+    if (!apiClient || typeof apiClient.fetchDeviceState !== 'function') {
+      throw new Error('API key not set. Please enter your API key in settings.')
+    }
     const state = await apiClient.fetchDeviceState({ device })
     return { success: true, data: state }
   } catch (error) {
+    console.error('Error in fetch-device-state handler:', error)
     return { success: false, error: error.message }
   }
 })
 
 ipcMain.handle('toggle-device-power', async (event, device, state) => {
   try {
+    if (!apiClient || typeof apiClient.toggleDevicePower !== 'function') {
+      throw new Error('API key not set. Please enter your API key in settings.')
+    }
     await apiClient.toggleDevicePower({ device, state })
     return { success: true }
   } catch (error) {
+    console.error('Error in toggle-device-power handler:', error)
     return { success: false, error: error.message }
   }
 })
 
 ipcMain.handle('set-device-brightness', async (event, device, brightness) => {
   try {
+    if (!apiClient || typeof apiClient.setDeviceBrightness !== 'function') {
+      throw new Error('API key not set. Please enter your API key in settings.')
+    }
     await apiClient.setDeviceBrightness({ device, brightness })
     return { success: true }
   } catch (error) {
+    console.error('Error in set-device-brightness handler:', error)
     return { success: false, error: error.message }
   }
+})
+
+ipcMain.handle('get-theme', () => {
+  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 })
