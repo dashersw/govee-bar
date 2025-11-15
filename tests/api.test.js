@@ -4,6 +4,9 @@ const { createApiClient } = require('../lib/api-client')
 
 const API_KEY = process.env.GOVEE_API_KEY
 
+if (!API_KEY) {
+  test('Govee API End-to-End Tests (requires GOVEE_API_KEY)', { skip: 'Set GOVEE_API_KEY to run integration tests' }, () => {})
+} else {
 describe('Govee API End-to-End Tests', () => {
   let apiClient
 
@@ -330,3 +333,4 @@ describe('Govee API End-to-End Tests', () => {
     })
   })
 })
+}

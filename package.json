@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
-    "test": "node --test tests/api.test.js"
+    "test": "node --test \"tests/**/*.test.js\""
   },
   "repository": {
     "type": "git",
@@ -24,6 +24,7 @@
     "@mantine/hooks": "^7.15.0",
     "axios": "^1.6.0",
     "electron-liquid-glass": "^1.1.1",
+    "electron-store": "^10.1.0",
     "mqtt": "^5.14.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
