@@ -1,6 +1,21 @@
 const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage } = require('electron')
 const path = require('path')
 const { createApiClient } = require('../lib/api-client')
+const keytar = require('keytar')
+
+// Service name for keytar (used to identify the app in system credential storage)
+const KEYTAR_SERVICE = 'govee-bar'
+const KEYTAR_ACCOUNT = 'api-key'
+
+// Get API key from system credential storage
+async function getApiKey() {
+  try {
+    return await keytar.getPassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT)
+  } catch (error) {
+    console.error('Error retrieving API key from keytar:', error)
+    return null
+  }
+}
 
 const API_KEY = process.env.GOVEE_API_KEY
 
@@ -174,6 +189,28 @@ app.on('before-quit', () => {
 })
 
 // IPC Handlers
+ipcMain.handle('get-api-key', async () => {
+  return await getApiKey()
+})
+
+ipcMain.handle('save-api-key', async (event, apiKeyInput) => {
+  try {
+    const trimmedApiKey = apiKeyInput?.trim()
+
+    if (!trimmedApiKey) {
+      return { success: false, error: 'API key cannot be empty' }
+    }
+
+    // Store API key securely in system credential storage
+    await keytar.setPassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT, trimmedApiKey)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error setting API key:', error)
+    return { success: false, error: error.message || 'An error occurred while saving the API key' }
+  }
+})
+
 ipcMain.handle('fetch-devices', async () => {
   try {
     const devices = await apiClient.fetchDevices()
