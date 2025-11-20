@@ -101,10 +101,10 @@ export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessCha
             {getDeviceIcon()}
           </span>
           <div>
-            <Text size="sm" fw={600} c="white">
+            <Text size="sm" fw={600} style={{ color: 'var(--text-color)' }}>
               {device.deviceName || device.device}
             </Text>
-            <Text size="xs" c={isOn ? 'blue' : 'dimmed'}>
+            <Text size="xs" style={{ color: isOn ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
               {isOn ? `On • ${localBrightness}%` : 'Off'}
             </Text>
           </div>
@@ -136,17 +136,17 @@ export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessCha
             label={null}
             styles={{
               track: { 
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                backgroundColor: 'var(--bg-hover)',
                 height: '4px'
               },
               thumb: { 
-                backgroundColor: '#197fe6', 
+                backgroundColor: 'var(--primary-color)', 
                 border: 'none',
                 width: '14px',
                 height: '14px'
               },
               bar: {
-                backgroundColor: '#197fe6'
+                backgroundColor: 'var(--primary-color)'
               }
             }}
           />
