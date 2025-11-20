@@ -66,6 +66,10 @@ async function validateApiKeyInput(apiKeyInput) {
 
 let mainWindow = null
 let tray = null
+// Track devices that don't exist to avoid unnecessary requests
+const nonExistentDevices = new Set()
+// Track rate limit status
+let rateLimitedUntil = null
 
 function broadcastThemeToRenderer(theme) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -296,9 +300,44 @@ ipcMain.handle('fetch-devices', async () => {
 
 ipcMain.handle('fetch-device-state', async (event, device) => {
   try {
+    // Skip devices that we know don't exist
+    const deviceKey = `${device.sku}:${device.device}`
+    if (nonExistentDevices.has(deviceKey)) {
+      return { success: false, error: 'Device does not exist', skip: true }
+    }
+
+    // Skip requests if we're rate limited
+    if (rateLimitedUntil && Date.now() < rateLimitedUntil) {
+      return { success: false, error: 'Rate limited', skip: true }
+    }
+
     const state = await apiClient.fetchDeviceState({ device })
     return { success: true, data: state }
   } catch (error) {
+    // Check if it's a 429 rate limit error (HTTP status or API code)
+    if (error.response?.status === 429 || error.response?.data?.code === 429 || error.message?.includes('429')) {
+      // Set rate limit for 60 seconds
+      rateLimitedUntil = Date.now() + 60000
+      console.warn('Rate limited, skipping requests for 60 seconds')
+      return { success: false, error: 'Rate limited', skip: true }
+    }
+
+    // Check if device doesn't exist (400 error with "devices not exist")
+    const errorMessage = error.message || ''
+    const errorData = error.response?.data || {}
+    if (
+      error.response?.status === 400 ||
+      error.response?.data?.code === 400 ||
+      errorMessage.includes('devices not exist') ||
+      errorData.msg === 'devices not exist'
+    ) {
+      const deviceKey = `${device.sku}:${device.device}`
+      nonExistentDevices.add(deviceKey)
+      console.warn(`Device ${deviceKey} does not exist, skipping future requests`)
+      return { success: false, error: 'Device does not exist', skip: true }
+    }
+
+    console.error('Error in fetch-device-state handler:', error)
     return { success: false, error: error.message }
   }
 })

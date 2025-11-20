@@ -30,15 +30,19 @@ export function useLights() {
   const fetchDeviceState = useCallback(async (device, skipProtectionChecks = false) => {
     try {
       const result = await window.electronAPI.fetchDeviceState(device)
+      // Skip silently if the request was skipped (device doesn't exist or rate limited)
+      if (result.skip) {
+        return null
+      }
       if (result.success) {
         setDeviceStates(prev => {
           const currentState = prev[device.device]
           const newState = result.data
-          
+
           if (!skipProtectionChecks && currentState) {
             let updatedCapabilities = newState.capabilities || []
             let needsUpdate = false
-          
+
             // If brightness was recently updated, preserve it instead of overwriting
             if (brightnessUpdateTimes.current[device.device]) {
               const timeSinceUpdate = Date.now() - brightnessUpdateTimes.current[device.device]
@@ -46,7 +50,7 @@ export function useLights() {
               if (timeSinceUpdate < 3000) {
                 const currentBrightness = currentState.capabilities?.find(cap => cap.instance === 'brightness')
                 const newBrightness = newState.capabilities?.find(cap => cap.instance === 'brightness')
-                
+
                 if (currentBrightness && newBrightness) {
                   updatedCapabilities = updatedCapabilities.map(cap => {
                     if (cap.instance === 'brightness') {
@@ -64,7 +68,7 @@ export function useLights() {
                 }
               }
             }
-            
+
             // If power was recently toggled, preserve it instead of overwriting
             if (powerUpdateTimes.current[device.device]) {
               const timeSinceUpdate = Date.now() - powerUpdateTimes.current[device.device]
@@ -72,7 +76,7 @@ export function useLights() {
               if (timeSinceUpdate < 3000) {
                 const currentPower = currentState.capabilities?.find(cap => cap.instance === 'powerSwitch')
                 const newPower = newState.capabilities?.find(cap => cap.instance === 'powerSwitch')
-                
+
                 if (currentPower && newPower) {
                   updatedCapabilities = updatedCapabilities.map(cap => {
                     if (cap.instance === 'powerSwitch') {
@@ -90,7 +94,7 @@ export function useLights() {
                 }
               }
             }
-            
+
             if (needsUpdate) {
               return {
                 ...prev,
@@ -101,7 +105,7 @@ export function useLights() {
               }
             }
           }
-          
+
           return {
             ...prev,
             [device.device]: newState
@@ -121,15 +125,15 @@ export function useLights() {
     async (device, newState) => {
       // Store the previous state for rollback
       const previousState = deviceStates[device.device]
-      
+
       // Record the time when power is being toggled
       powerUpdateTimes.current[device.device] = Date.now()
-      
+
       // Optimistically update the local state immediately
       setDeviceStates(prev => {
         const currentState = prev[device.device]
         if (!currentState || !currentState.capabilities) return prev
-        
+
         const updatedCapabilities = currentState.capabilities.map(cap => {
           if (cap.instance === 'powerSwitch') {
             return {
@@ -142,7 +146,7 @@ export function useLights() {
           }
           return cap
         })
-        
+
         return {
           ...prev,
           [device.device]: {
@@ -151,7 +155,7 @@ export function useLights() {
           }
         }
       })
-      
+
       try {
         const result = await window.electronAPI.toggleDevicePower(device, newState)
         if (result.success) {
@@ -188,7 +192,11 @@ export function useLights() {
 
     for (const device of devices) {
       try {
-        await fetchDeviceState(device)
+        const result = await fetchDeviceState(device)
+        // Skip silently if request was skipped (device doesn't exist or rate limited)
+        if (result === null) {
+          continue
+        }
       } catch (err) {
         // Continue with other devices even if one fails
         console.error(`Failed to refresh state for ${device.device}:`, err)
@@ -205,7 +213,11 @@ export function useLights() {
         // Fetch states for all devices
         for (const device of loadedDevices) {
           try {
-            await fetchDeviceState(device)
+            const result = await fetchDeviceState(device)
+            // Skip silently if request was skipped (device doesn't exist or rate limited)
+            if (result === null) {
+              continue
+            }
           } catch (err) {
             console.error(`Failed to load state for ${device.device}:`, err)
           }
@@ -259,14 +271,14 @@ export function useLights() {
       try {
         // Record the time when brightness is being set
         brightnessUpdateTimes.current[device.device] = Date.now()
-        
+
         const result = await window.electronAPI.setDeviceBrightness(device, brightness)
         if (result.success) {
           // Optimistically update the local state immediately
           setDeviceStates(prev => {
             const currentState = prev[device.device]
             if (!currentState || !currentState.capabilities) return prev
-            
+
             const updatedCapabilities = currentState.capabilities.map(cap => {
               if (cap.instance === 'brightness') {
                 return {
@@ -279,7 +291,7 @@ export function useLights() {
               }
               return cap
             })
-            
+
             return {
               ...prev,
               [device.device]: {
@@ -288,7 +300,7 @@ export function useLights() {
               }
             }
           })
-          
+
           return true
         } else {
           delete brightnessUpdateTimes.current[device.device]
