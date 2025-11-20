@@ -24,6 +24,8 @@
     "@mantine/hooks": "^7.15.0",
     "axios": "^1.6.0",
     "electron-liquid-glass": "^1.1.1",
+    "electron-store": "^10.1.0",
+    "keytar": "^7.9.0",
     "mqtt": "^5.14.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
