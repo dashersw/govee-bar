@@ -1,6 +1,6 @@
 import { Group, Text, ActionIcon } from '@mantine/core'
 
-export function Header({ onlineCount, totalCount }) {
+export function Header({ onlineCount, totalCount, onSettingsClick }) {
   return (
     <div className="app-header">
       <Group justify="space-between" wrap="nowrap" style={{ width: '100%' }}>
@@ -22,6 +22,7 @@ export function Header({ onlineCount, totalCount }) {
             variant="subtle" 
             color="gray" 
             size="lg"
+            onClick={onSettingsClick}
             style={{ 
               color: 'rgba(255, 255, 255, 0.6)',
               background: 'transparent',
