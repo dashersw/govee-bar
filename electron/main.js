@@ -17,14 +17,52 @@ async function getApiKey() {
   }
 }
 
-const API_KEY = process.env.GOVEE_API_KEY
+// Initialize API client - always create one, even if API key is missing
+// The interceptor will handle missing API key errors
+let apiClient = null
 
-if (!API_KEY) {
-  console.error('Error: GOVEE_API_KEY environment variable is required')
-  app.quit()
+function createClient(apiKey) {
+  // Always create a client, even with null/empty API key
+  // The interceptor will handle missing API key errors
+  return createApiClient(apiKey || '')
 }
 
-const apiClient = createApiClient(API_KEY)
+async function initializeApiClient() {
+  const apiKey = await getApiKey()
+  // Always create a client instance - interceptor handles missing API key
+  apiClient = createClient(apiKey)
+}
+
+async function validateApiKeyInput(apiKeyInput) {
+  const trimmedApiKey = apiKeyInput?.trim()
+
+  if (!trimmedApiKey) {
+    throw new Error('API key cannot be empty')
+  }
+
+  const client = createClient(trimmedApiKey)
+
+  try {
+    const response = await client.fetchDevices()
+    // Check if response indicates success (status 200 or valid data)
+    if (!response || (Array.isArray(response) && response.length === 0 && trimmedApiKey.length < 10)) {
+      throw new Error('Invalid API key')
+    }
+  } catch (error) {
+    // Check if it's an authentication/authorization error
+    if (
+      error.response?.status === 401 ||
+      error.response?.status === 403 ||
+      error.message?.includes('401') ||
+      error.message?.includes('403')
+    ) {
+      throw new Error('Invalid API key')
+    }
+    throw new Error(`Invalid API key: ${error.message}`)
+  }
+
+  return { trimmedApiKey, client }
+}
 
 let mainWindow = null
 let tray = null
@@ -139,7 +177,10 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Initialize API client
+  await initializeApiClient()
+
   // Create tray icon first
   const icon = createTrayIcon()
   tray = new Tray(icon)
@@ -195,14 +236,11 @@ ipcMain.handle('get-api-key', async () => {
 
 ipcMain.handle('save-api-key', async (event, apiKeyInput) => {
   try {
-    const trimmedApiKey = apiKeyInput?.trim()
-
-    if (!trimmedApiKey) {
-      return { success: false, error: 'API key cannot be empty' }
-    }
+    const { trimmedApiKey, client } = await validateApiKeyInput(apiKeyInput)
 
     // Store API key securely in system credential storage
     await keytar.setPassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT, trimmedApiKey)
+    apiClient = client
 
     return { success: true }
   } catch (error) {
