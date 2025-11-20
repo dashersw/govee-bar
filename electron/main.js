@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage, nativeTheme } = require('electron')
 const path = require('path')
 const { createApiClient } = require('../lib/api-client')
 const keytar = require('keytar')
@@ -66,6 +66,20 @@ async function validateApiKeyInput(apiKeyInput) {
 
 let mainWindow = null
 let tray = null
+
+function broadcastThemeToRenderer(theme) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.executeJavaScript(`
+      document.documentElement.setAttribute('data-theme', '${theme}');
+    `)
+    mainWindow.webContents.send('theme-changed', theme)
+  }
+}
+
+const handleNativeThemeUpdated = () => {
+  const newTheme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  broadcastThemeToRenderer(newTheme)
+}
 
 // Create orange square icon
 function createTrayIcon() {
@@ -146,6 +160,17 @@ function createWindow() {
   // Ensure traffic lights are completely removed
   mainWindow.setMenuBarVisibility(false)
 
+  // Set initial theme attribute and apply translucency effects after load
+  mainWindow.webContents.once('did-finish-load', () => {
+    const currentTheme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+    mainWindow.webContents.executeJavaScript(`
+      document.documentElement.setAttribute('data-theme', '${currentTheme}');
+    `)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('theme-changed', currentTheme)
+    }
+  })
+
   // Ensure window is positioned correctly after creation
   mainWindow.once('ready-to-show', () => {
     const { x: newX, y: newY } = positionWindowUnderTray()
@@ -180,6 +205,9 @@ function createWindow() {
 app.whenReady().then(async () => {
   // Initialize API client
   await initializeApiClient()
+
+  // Setup theme change listener
+  nativeTheme.on('updated', handleNativeThemeUpdated)
 
   // Create tray icon first
   const icon = createTrayIcon()
@@ -247,6 +275,10 @@ ipcMain.handle('save-api-key', async (event, apiKeyInput) => {
     console.error('Error setting API key:', error)
     return { success: false, error: error.message || 'An error occurred while saving the API key' }
   }
+})
+
+ipcMain.handle('get-theme', () => {
+  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 })
 
 ipcMain.handle('fetch-devices', async () => {
