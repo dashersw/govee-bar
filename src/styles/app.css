@@ -4,6 +4,46 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* Dark theme (default) */
+  --bg-color: rgba(20, 20, 25, 0.6);
+  --border-color: rgba(255, 255, 255, 0.2);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --text-color: rgba(255, 255, 255, 0.9);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-tertiary: rgba(255, 255, 255, 0.4);
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --bg-subtle: rgba(255, 255, 255, 0.05);
+  --bg-hover: rgba(255, 255, 255, 0.1);
+  --bg-hover-strong: rgba(255, 255, 255, 0.2);
+  --icon-color: rgba(255, 255, 255, 0.7);
+  --icon-disabled: rgba(255, 255, 255, 0.4);
+  --icon-disabled-light: rgba(255, 255, 255, 0.5);
+  --primary-color: #197fe6;
+  --primary-bg: rgba(25, 127, 230, 0.2);
+  --primary-bg-hover: rgba(25, 127, 230, 0.3);
+}
+
+[data-theme='light'] {
+  /* Light theme */
+  --bg-color: rgba(255, 255, 255, 0.7);
+  --border-color: rgba(0, 0, 0, 0.15);
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --text-color: rgba(0, 0, 0, 0.9);
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --text-tertiary: rgba(0, 0, 0, 0.4);
+  --shadow-color: rgba(0, 0, 0, 0.15);
+  --bg-subtle: rgba(0, 0, 0, 0.03);
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-hover-strong: rgba(0, 0, 0, 0.1);
+  --icon-color: rgba(0, 0, 0, 0.7);
+  --icon-disabled: rgba(0, 0, 0, 0.3);
+  --icon-disabled-light: rgba(0, 0, 0, 0.4);
+  --primary-color: #197fe6;
+  --primary-bg: rgba(25, 127, 230, 0.15);
+  --primary-bg-hover: rgba(25, 127, 230, 0.25);
+}
+
 html,
 body {
   margin: 0;
