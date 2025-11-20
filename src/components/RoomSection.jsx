@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Group, Text } from '@mantine/core'
 import { DeviceItem } from './DeviceItem'
 
-export function RoomSection({ roomName, devices, getDevicePowerState, getDeviceBrightness, toggleDevicePower, setDeviceBrightness, loading }) {
+export function RoomSection({ roomName, devices, getDevicePowerState, getDeviceBrightness, getDeviceColorRgb, getDeviceColorTemperatureK, toggleDevicePower, setDeviceBrightness, setDeviceColorRgb, setDeviceColorTemperatureK, loading }) {
   const [expanded, setExpanded] = useState(roomName === 'Living Room')
   
   const onlineCount = devices.filter(d => getDevicePowerState(d) === true).length
@@ -45,6 +45,10 @@ export function RoomSection({ roomName, devices, getDevicePowerState, getDeviceB
                 brightness={brightness}
                 onToggle={toggleDevicePower}
                 onBrightnessChange={setDeviceBrightness}
+                getDeviceColorRgb={getDeviceColorRgb}
+                setDeviceColorRgb={setDeviceColorRgb}
+                getDeviceColorTemperatureK={getDeviceColorTemperatureK}
+                setDeviceColorTemperatureK={setDeviceColorTemperatureK}
                 loading={loading}
               />
             )

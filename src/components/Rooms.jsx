@@ -1,7 +1,7 @@
 import { Text, Loader, Center } from '@mantine/core'
 import { RoomSection } from './RoomSection'
 
-export function Rooms({ devices, getDevicePowerState, getDeviceBrightness, toggleDevicePower, setDeviceBrightness, loading, error }) {
+export function Rooms({ devices, getDevicePowerState, getDeviceBrightness, getDeviceColorRgb, getDeviceColorTemperatureK, toggleDevicePower, setDeviceBrightness, setDeviceColorRgb, setDeviceColorTemperatureK, loading, error }) {
   if (loading && devices.length === 0) {
     return (
       <Center style={{ padding: '40px' }}>
@@ -44,8 +44,12 @@ export function Rooms({ devices, getDevicePowerState, getDeviceBrightness, toggl
             devices={roomDevices}
             getDevicePowerState={getDevicePowerState}
             getDeviceBrightness={getDeviceBrightness}
+            getDeviceColorRgb={getDeviceColorRgb}
+            getDeviceColorTemperatureK={getDeviceColorTemperatureK}
             toggleDevicePower={toggleDevicePower}
             setDeviceBrightness={setDeviceBrightness}
+            setDeviceColorRgb={setDeviceColorRgb}
+            setDeviceColorTemperatureK={setDeviceColorTemperatureK}
             loading={loading}
           />
         ))}

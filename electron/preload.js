@@ -5,9 +5,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchDeviceState: device => ipcRenderer.invoke('fetch-device-state', device),
   toggleDevicePower: (device, state) => ipcRenderer.invoke('toggle-device-power', device, state),
   setDeviceBrightness: (device, brightness) => ipcRenderer.invoke('set-device-brightness', device, brightness),
+  setDeviceColorRgb: (device, rgb) => ipcRenderer.invoke('set-device-color-rgb', device, rgb),
+  setDeviceColorTemperatureK: (device, temperatureK) =>
+    ipcRenderer.invoke('set-device-color-temperature-k', device, temperatureK),
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   saveApiKey: apiKey => ipcRenderer.invoke('save-api-key', apiKey),
   getTheme: () => ipcRenderer.invoke('get-theme'),
+  setDebugMode: enabled => ipcRenderer.invoke('set-debug-mode', enabled),
   onThemeChange: callback => {
     if (typeof callback !== 'function') {
       return () => {}

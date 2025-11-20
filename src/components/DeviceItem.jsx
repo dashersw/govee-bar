@@ -1,12 +1,32 @@
 import { Switch, Group, Text, Slider } from '@mantine/core'
 import { useState, useEffect, useRef } from 'react'
+import { ColorPicker } from './ColorPicker'
+import { rgbIntToHex } from '../utils/colorUtils'
 
-export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessChange, loading }) {
+export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessChange, getDeviceColorRgb, setDeviceColorRgb, getDeviceColorTemperatureK, setDeviceColorTemperatureK, loading }) {
   const [toggling, setToggling] = useState(false)
   const [localBrightness, setLocalBrightness] = useState(brightness || 75)
   const [changingBrightness, setChangingBrightness] = useState(false)
+  const [colorPickerOpened, setColorPickerOpened] = useState(false)
+  const [changingColor, setChangingColor] = useState(false)
   const debounceTimerRef = useRef(null)
   const lastBrightnessRef = useRef(brightness || 75)
+
+  // Check if device has colorRgb capability
+  const hasColorCapability = device.capabilities?.some(
+    cap => cap.type === 'devices.capabilities.color_setting' && cap.instance === 'colorRgb'
+  )
+
+  // Check if device has colorTemperatureK capability
+  const hasTemperatureCapability = device.capabilities?.some(
+    cap => cap.type === 'devices.capabilities.color_setting' && cap.instance === 'colorTemperatureK'
+  )
+
+  // Get current color
+  const currentColorRgb = hasColorCapability && getDeviceColorRgb ? getDeviceColorRgb(device) : null
+
+  // Get current temperature
+  const currentColorTemperatureK = hasTemperatureCapability && getDeviceColorTemperatureK ? getDeviceColorTemperatureK(device) : null
 
   // Update local brightness when prop changes, but not while we're changing it
   useEffect(() => {
@@ -85,6 +105,28 @@ export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessCha
     }
   }, [])
 
+  const handleColorChange = async (device, rgbInt) => {
+    if (!setDeviceColorRgb) return
+    setChangingColor(true)
+    try {
+      await setDeviceColorRgb(device, rgbInt)
+      // Don't close color picker - allow user to continue adjusting
+    } catch (error) {
+      console.error('Color change failed:', error)
+    } finally {
+      setChangingColor(false)
+    }
+  }
+
+  const handleTemperatureChange = async (device, temperatureK) => {
+    if (!setDeviceColorTemperatureK) return
+    try {
+      await setDeviceColorTemperatureK(device, temperatureK)
+    } catch (error) {
+      console.error('Temperature change failed:', error)
+    }
+  }
+
   const getDeviceIcon = () => {
     // You can customize icons based on device name or type
     if (device.deviceName?.toLowerCase().includes('strip') || device.deviceName?.toLowerCase().includes('led')) {
@@ -93,6 +135,11 @@ export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessCha
     return 'lightbulb'
   }
 
+  // Get color preview hex or default gray
+  const colorPreviewHex = currentColorRgb !== null && currentColorRgb !== undefined 
+    ? rgbIntToHex(currentColorRgb) 
+    : '#808080'
+
   return (
     <div className="device-card">
       <div className="device-card-header">
@@ -100,10 +147,37 @@ export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessCha
           <span className={`material-symbols-outlined device-icon ${isOn ? 'icon-on' : 'icon-off'}`} style={{ fontSize: '24px' }}>
             {getDeviceIcon()}
           </span>
-          <div>
-            <Text size="sm" fw={600} style={{ color: 'var(--text-color)' }}>
-              {device.deviceName || device.device}
-            </Text>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Group gap={8} align="center">
+              <Text size="sm" fw={600} style={{ color: 'var(--text-color)' }}>
+                {device.deviceName || device.device}
+              </Text>
+              {(hasColorCapability || hasTemperatureCapability) && isOn && (
+                <button
+                  onClick={() => setColorPickerOpened(!colorPickerOpened)}
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: colorPreviewHex,
+                    border: colorPickerOpened ? '2px solid var(--primary-color)' : '2px solid rgba(255, 255, 255, 0.2)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    padding: 0,
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.1)'
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)'
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
+                  title={colorPickerOpened ? 'Close color picker' : 'Change color'}
+                />
+              )}
+            </Group>
             <Text size="xs" style={{ color: isOn ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
               {isOn ? `On • ${localBrightness}%` : 'Off'}
             </Text>
@@ -151,6 +225,18 @@ export function DeviceItem({ device, isOn, brightness, onToggle, onBrightnessCha
             }}
           />
         </div>
+      )}
+      {(hasColorCapability || hasTemperatureCapability) && isOn && (
+        <ColorPicker
+          opened={colorPickerOpened}
+          device={device}
+          currentColorRgb={currentColorRgb}
+          currentColorTemperatureK={currentColorTemperatureK}
+          onColorChange={handleColorChange}
+          onTemperatureChange={handleTemperatureChange}
+          onClose={() => setColorPickerOpened(false)}
+          loading={changingColor || loading}
+        />
       )}
     </div>
   )

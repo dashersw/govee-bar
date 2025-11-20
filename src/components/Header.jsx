@@ -1,6 +1,6 @@
-import { Group, Text, ActionIcon } from '@mantine/core'
+import { Group, Text, ActionIcon, Switch } from '@mantine/core'
 
-export function Header({ onlineCount, totalCount, onSettingsClick }) {
+export function Header({ onlineCount, totalCount, onSettingsClick, debugMode, onDebugModeChange }) {
   return (
     <div className="app-header">
       <Group justify="space-between" wrap="nowrap" style={{ width: '100%' }}>
@@ -18,12 +18,30 @@ export function Header({ onlineCount, totalCount, onSettingsClick }) {
               ? 'All devices online'
               : `${onlineCount || 0} of ${totalCount || 0} devices online`}
           </Text>
-          <ActionIcon 
-            variant="subtle" 
-            color="gray" 
+          <Switch
+            checked={debugMode}
+            onChange={e => onDebugModeChange(e.currentTarget.checked)}
+            label="Debug"
+            size="xs"
+            style={{
+              WebkitAppRegion: 'no-drag'
+            }}
+            styles={{
+              label: {
+                color: 'var(--text-secondary)',
+                fontSize: '11px'
+              },
+              track: {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          />
+          <ActionIcon
+            variant="subtle"
+            color="gray"
             size="lg"
             onClick={onSettingsClick}
-            style={{ 
+            style={{
               color: 'var(--text-secondary)',
               background: 'transparent',
               WebkitAppRegion: 'no-drag'
@@ -38,4 +56,3 @@ export function Header({ onlineCount, totalCount, onSettingsClick }) {
     </div>
   )
 }
-

@@ -18,10 +18,19 @@ const theme = createTheme({
 function App() {
   const [settingsOpened, setSettingsOpened] = useState(false)
   const [hasApiKey, setHasApiKey] = useState(true)
-  const { devices, loading, error, toggleDevicePower, setDeviceBrightness, getDevicePowerState, getDeviceBrightness, refreshAllStates } = useLights()
+  const [debugMode, setDebugMode] = useState(false)
+  const { devices, loading, error, toggleDevicePower, setDeviceBrightness, setDeviceColorRgb, setDeviceColorTemperatureK, getDevicePowerState, getDeviceBrightness, getDeviceColorRgb, getDeviceColorTemperatureK, refreshAllStates } = useLights()
   
   const onlineCount = devices.filter(d => getDevicePowerState(d) === true).length
   const totalCount = devices.length
+
+  const handleDebugModeChange = async (enabled) => {
+    setDebugMode(enabled)
+    document.documentElement.setAttribute('data-debug-mode', enabled.toString())
+    if (window.electronAPI?.setDebugMode) {
+      await window.electronAPI.setDebugMode(enabled)
+    }
+  }
 
   useEffect(() => {
     // Check if API key exists
@@ -40,6 +49,9 @@ function App() {
       // Default to dark if theme can't be retrieved
       document.documentElement.setAttribute('data-theme', 'dark')
     })
+
+    // Set initial debug mode state
+    document.documentElement.setAttribute('data-debug-mode', 'false')
 
     // Listen for theme changes
     const unsubscribe = window.electronAPI.onThemeChange((theme) => {
@@ -60,6 +72,8 @@ function App() {
           onlineCount={onlineCount} 
           totalCount={totalCount} 
           onSettingsClick={() => setSettingsOpened(true)}
+          debugMode={debugMode}
+          onDebugModeChange={handleDebugModeChange}
         />
         <div className="app-content">
           {!hasApiKey && (
@@ -85,8 +99,12 @@ function App() {
               devices={devices}
               getDevicePowerState={getDevicePowerState}
               getDeviceBrightness={getDeviceBrightness}
+              getDeviceColorRgb={getDeviceColorRgb}
+              getDeviceColorTemperatureK={getDeviceColorTemperatureK}
               toggleDevicePower={toggleDevicePower}
               setDeviceBrightness={setDeviceBrightness}
+              setDeviceColorRgb={setDeviceColorRgb}
+              setDeviceColorTemperatureK={setDeviceColorTemperatureK}
               loading={loading}
               error={error}
             />

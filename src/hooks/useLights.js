@@ -9,6 +9,10 @@ export function useLights() {
   const brightnessUpdateTimes = useRef({})
   // Track when power was last toggled to prevent auto-refresh from overwriting
   const powerUpdateTimes = useRef({})
+  // Track when color was last set to prevent auto-refresh from overwriting
+  const colorUpdateTimes = useRef({})
+  // Track when temperature was last set to prevent auto-refresh from overwriting
+  const temperatureUpdateTimes = useRef({})
 
   const fetchDevices = useCallback(async () => {
     try {
@@ -86,6 +90,58 @@ export function useLights() {
                         state: {
                           ...cap.state,
                           value: currentPower.state.value
+                        }
+                      }
+                    }
+                    return cap
+                  })
+                }
+              }
+            }
+
+            // If color was recently updated, preserve it instead of overwriting
+            if (colorUpdateTimes.current[device.device]) {
+              const timeSinceUpdate = Date.now() - colorUpdateTimes.current[device.device]
+              // Don't overwrite color if it was set within the last 3 seconds
+              if (timeSinceUpdate < 3000) {
+                const currentColor = currentState.capabilities?.find(cap => cap.instance === 'colorRgb')
+                const newColor = newState.capabilities?.find(cap => cap.instance === 'colorRgb')
+
+                if (currentColor && newColor) {
+                  updatedCapabilities = updatedCapabilities.map(cap => {
+                    if (cap.instance === 'colorRgb') {
+                      needsUpdate = true
+                      return {
+                        ...cap,
+                        state: {
+                          ...cap.state,
+                          value: currentColor.state.value
+                        }
+                      }
+                    }
+                    return cap
+                  })
+                }
+              }
+            }
+
+            // If temperature was recently updated, preserve it instead of overwriting
+            if (temperatureUpdateTimes.current[device.device]) {
+              const timeSinceUpdate = Date.now() - temperatureUpdateTimes.current[device.device]
+              // Don't overwrite temperature if it was set within the last 3 seconds
+              if (timeSinceUpdate < 3000) {
+                const currentTemp = currentState.capabilities?.find(cap => cap.instance === 'colorTemperatureK')
+                const newTemp = newState.capabilities?.find(cap => cap.instance === 'colorTemperatureK')
+
+                if (currentTemp && newTemp) {
+                  updatedCapabilities = updatedCapabilities.map(cap => {
+                    if (cap.instance === 'colorTemperatureK') {
+                      needsUpdate = true
+                      return {
+                        ...cap,
+                        state: {
+                          ...cap.state,
+                          value: currentTemp.state.value
                         }
                       }
                     }
@@ -315,6 +371,130 @@ export function useLights() {
     [fetchDeviceState]
   )
 
+  const getDeviceColorRgb = useCallback(
+    device => {
+      const state = deviceStates[device.device]
+      if (!state || !state.capabilities) return null
+
+      const colorCap = state.capabilities.find(cap => cap.instance === 'colorRgb')
+      if (!colorCap || colorCap.state?.value === undefined) return null
+
+      return colorCap.state.value
+    },
+    [deviceStates]
+  )
+
+  const setDeviceColorRgb = useCallback(
+    async (device, rgb) => {
+      try {
+        // Record the time when color is being set
+        colorUpdateTimes.current[device.device] = Date.now()
+
+        const result = await window.electronAPI.setDeviceColorRgb(device, rgb)
+        if (result.success) {
+          // Optimistically update the local state immediately
+          setDeviceStates(prev => {
+            const currentState = prev[device.device]
+            if (!currentState || !currentState.capabilities) return prev
+
+            const updatedCapabilities = currentState.capabilities.map(cap => {
+              if (cap.instance === 'colorRgb') {
+                return {
+                  ...cap,
+                  state: {
+                    ...cap.state,
+                    value: rgb
+                  }
+                }
+              }
+              return cap
+            })
+
+            return {
+              ...prev,
+              [device.device]: {
+                ...currentState,
+                capabilities: updatedCapabilities
+              }
+            }
+          })
+
+          return true
+        } else {
+          delete colorUpdateTimes.current[device.device]
+          throw new Error(result.error)
+        }
+      } catch (err) {
+        delete colorUpdateTimes.current[device.device]
+        console.error(`Error setting color for device ${device.device}:`, err)
+        throw err
+      }
+    },
+    [fetchDeviceState]
+  )
+
+  const getDeviceColorTemperatureK = useCallback(
+    device => {
+      const state = deviceStates[device.device]
+      if (!state || !state.capabilities) return null
+
+      const tempCap = state.capabilities.find(cap => cap.instance === 'colorTemperatureK')
+      if (!tempCap || tempCap.state?.value === undefined) return null
+
+      return tempCap.state.value
+    },
+    [deviceStates]
+  )
+
+  const setDeviceColorTemperatureK = useCallback(
+    async (device, temperatureK) => {
+      try {
+        // Record the time when temperature is being set
+        temperatureUpdateTimes.current[device.device] = Date.now()
+
+        const result = await window.electronAPI.setDeviceColorTemperatureK(device, temperatureK)
+        if (result.success) {
+          // Optimistically update the local state immediately
+          setDeviceStates(prev => {
+            const currentState = prev[device.device]
+            if (!currentState || !currentState.capabilities) return prev
+
+            const updatedCapabilities = currentState.capabilities.map(cap => {
+              if (cap.instance === 'colorTemperatureK') {
+                return {
+                  ...cap,
+                  state: {
+                    ...cap.state,
+                    value: temperatureK
+                  }
+                }
+              }
+              return cap
+            })
+
+            return {
+              ...prev,
+              [device.device]: {
+                ...currentState,
+                capabilities: updatedCapabilities
+              }
+            }
+          })
+
+          return true
+        } else {
+          delete temperatureUpdateTimes.current[device.device]
+          throw new Error(result.error)
+        }
+      } catch (err) {
+        delete temperatureUpdateTimes.current[device.device]
+        console.error(`Error setting temperature for device ${device.device}:`, err)
+        throw err
+      }
+    },
+    [fetchDeviceState]
+  )
+
   return {
     devices,
     deviceStates,
@@ -322,8 +502,12 @@ export function useLights() {
     error,
     toggleDevicePower,
     setDeviceBrightness,
+    setDeviceColorRgb,
+    setDeviceColorTemperatureK,
     refreshAllStates,
     getDevicePowerState,
-    getDeviceBrightness
+    getDeviceBrightness,
+    getDeviceColorRgb,
+    getDeviceColorTemperatureK
   }
 }

@@ -112,22 +112,24 @@ function createTrayIcon() {
   return nativeImage.createFromBuffer(canvas, { width: size, height: size })
 }
 
+let debugMode = false
+
 function positionWindowUnderTray() {
   if (!tray) {
     // Fallback: position at top-right if tray not available
     const { width } = screen.getPrimaryDisplay().workAreaSize
-    const windowWidth = 360
+    const windowWidth = debugMode ? 720 : 360
     return {
       x: width - windowWidth - 20,
       y: 30,
       width: windowWidth,
-      height: 600
+      height: debugMode ? 900 : 600
     }
   }
 
   const trayBounds = tray.getBounds()
-  const windowWidth = 360
-  const windowHeight = 600
+  const windowWidth = debugMode ? 720 : 360
+  const windowHeight = debugMode ? 900 : 600
 
   // On macOS, tray icons are in the menu bar at the top
   // Position window centered horizontally under the tray icon
@@ -423,4 +425,38 @@ ipcMain.handle('set-device-brightness', async (event, device, brightness) => {
     console.error('Error in set-device-brightness handler:', error)
     return { success: false, error: error.message }
   }
+})
+
+ipcMain.handle('set-device-color-rgb', async (event, device, rgb) => {
+  try {
+    await apiClient.setDeviceColorRgb({ device, rgb })
+    return { success: true }
+  } catch (error) {
+    console.error('Error in set-device-color-rgb handler:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('set-device-color-temperature-k', async (event, device, temperatureK) => {
+  try {
+    await apiClient.setDeviceColorTemperatureK({ device, temperatureK })
+    return { success: true }
+  } catch (error) {
+    console.error('Error in set-device-color-temperature-k handler:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('set-debug-mode', async (event, enabled) => {
+  debugMode = enabled
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const { x, y, width, height } = positionWindowUnderTray()
+    mainWindow.setSize(width, height)
+    mainWindow.setPosition(x, y, false)
+    // Update the app container max-width via data attribute
+    mainWindow.webContents.executeJavaScript(`
+      document.documentElement.setAttribute('data-debug-mode', '${enabled}');
+    `)
+  }
+  return { success: true }
 })
