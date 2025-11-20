@@ -1,7 +1,17 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage, nativeTheme } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, Tray, nativeImage, nativeTheme, globalShortcut } = require('electron')
 const path = require('path')
 const { createApiClient } = require('../lib/api-client')
 const keytar = require('keytar')
+
+// Import electron-liquid-glass for enhanced translucent effects (macOS only)
+let liquidGlass = null
+if (process.platform === 'darwin') {
+  try {
+    liquidGlass = require('electron-liquid-glass')
+  } catch (error) {
+    // electron-liquid-glass not available
+  }
+}
 
 // Service name for keytar (used to identify the app in system credential storage)
 const KEYTAR_SERVICE = 'govee-bar'
@@ -138,7 +148,11 @@ function positionWindowUnderTray() {
 function createWindow() {
   const { x, y, width: windowWidth, height: windowHeight } = positionWindowUnderTray()
 
-  mainWindow = new BrowserWindow({
+  // Determine vibrancy based on system theme
+  const isDarkMode = nativeTheme.shouldUseDarkColors
+  const vibrancyType = isDarkMode ? 'popover' : 'light'
+
+  const browserWindowOptions = {
     width: windowWidth,
     height: windowHeight,
     x,
@@ -146,11 +160,10 @@ function createWindow() {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    vibrancy: 'hud',
     visualEffectState: 'active',
     hasShadow: true,
     alwaysOnTop: true,
-    skipTaskbar: true,
+    skipTaskbar: !!tray, // Only skip taskbar if tray exists
     resizable: false,
     titleBarOverlay: false,
     webPreferences: {
@@ -159,7 +172,13 @@ function createWindow() {
       contextIsolation: true,
       backgroundThrottling: false
     }
-  })
+  }
+
+  if (!liquidGlass) {
+    browserWindowOptions.vibrancy = vibrancyType
+  }
+
+  mainWindow = new BrowserWindow(browserWindowOptions)
 
   // Ensure traffic lights are completely removed
   mainWindow.setMenuBarVisibility(false)
@@ -172,6 +191,21 @@ function createWindow() {
     `)
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('theme-changed', currentTheme)
+    }
+
+    // Apply liquid glass effect after content loads (macOS only)
+    // Using electron-liquid-glass for enhanced translucent effects
+    if (liquidGlass && process.platform === 'darwin') {
+      try {
+        liquidGlass.addView(mainWindow.getNativeWindowHandle(), {
+          cornerRadius: 12 // Match border-radius
+        })
+      } catch (error) {
+        // Fallback to native vibrancy
+        mainWindow.setVibrancy(vibrancyType)
+      }
+    } else if (!liquidGlass) {
+      mainWindow.setVibrancy(vibrancyType)
     }
   })
 
@@ -207,6 +241,11 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Hide dock icon immediately for menu bar app feel
+  if (process.platform === 'darwin') {
+    app.dock.hide()
+  }
+
   // Initialize API client
   await initializeApiClient()
 
@@ -216,13 +255,31 @@ app.whenReady().then(async () => {
   // Create tray icon first
   const icon = createTrayIcon()
   tray = new Tray(icon)
+  tray.setIgnoreDoubleClickEvents(true)
 
   tray.setToolTip('Govee Bar')
 
+  // Register global shortcut to toggle window (Command+Option+Shift+G)
+  globalShortcut.register('Command+Option+Shift+G', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide()
+      } else {
+        const { x, y } = positionWindowUnderTray()
+        mainWindow.setPosition(x, y, false)
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    } else {
+      createWindow()
+    }
+  })
+
   // Wait a moment for tray to be positioned, then create window
+  // On macOS, we may need to wait a bit longer for the tray to be fully initialized
   setTimeout(() => {
     createWindow()
-  }, 100)
+  }, 500)
 
   tray.on('click', () => {
     if (mainWindow) {
@@ -245,6 +302,11 @@ app.whenReady().then(async () => {
       createWindow()
     }
   })
+})
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {
@@ -294,6 +356,7 @@ ipcMain.handle('fetch-devices', async () => {
     )
     return { success: true, data: lights }
   } catch (error) {
+    console.error('Error in fetch-devices handler:', error)
     return { success: false, error: error.message }
   }
 })
@@ -347,6 +410,7 @@ ipcMain.handle('toggle-device-power', async (event, device, state) => {
     await apiClient.toggleDevicePower({ device, state })
     return { success: true }
   } catch (error) {
+    console.error('Error in toggle-device-power handler:', error)
     return { success: false, error: error.message }
   }
 })
@@ -356,6 +420,7 @@ ipcMain.handle('set-device-brightness', async (event, device, brightness) => {
     await apiClient.setDeviceBrightness({ device, brightness })
     return { success: true }
   } catch (error) {
+    console.error('Error in set-device-brightness handler:', error)
     return { success: false, error: error.message }
   }
 })
