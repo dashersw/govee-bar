@@ -32,6 +32,27 @@ function App() {
     })
   }, [])
 
+  useEffect(() => {
+    // Set initial theme
+    window.electronAPI.getTheme().then(theme => {
+      document.documentElement.setAttribute('data-theme', theme)
+    }).catch(() => {
+      // Default to dark if theme can't be retrieved
+      document.documentElement.setAttribute('data-theme', 'dark')
+    })
+
+    // Listen for theme changes
+    const unsubscribe = window.electronAPI.onThemeChange((theme) => {
+      document.documentElement.setAttribute('data-theme', theme)
+    })
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, [])
+
   return (
     <MantineProvider theme={theme}>
       <div className="app-container">
