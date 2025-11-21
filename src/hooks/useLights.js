@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { kelvinToRgb, rgbToRgbInt } from '../utils/colorUtils'
 
 export function useLights() {
   const [devices, setDevices] = useState([])
@@ -284,13 +285,13 @@ export function useLights() {
     loadDevices()
   }, [fetchDevices, fetchDeviceState])
 
-  // Auto-refresh every 5 seconds
+  // Auto-refresh every 30 seconds
   useEffect(() => {
     if (devices.length === 0) return
 
     const interval = setInterval(() => {
       refreshAllStates()
-    }, 5000)
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [devices, refreshAllStates])
@@ -459,6 +460,10 @@ export function useLights() {
             const currentState = prev[device.device]
             if (!currentState || !currentState.capabilities) return prev
 
+            // Calculate equivalent RGB for this temperature to update color preview
+            const rgb = kelvinToRgb(temperatureK)
+            const rgbInt = rgbToRgbInt(rgb.r, rgb.g, rgb.b)
+
             const updatedCapabilities = currentState.capabilities.map(cap => {
               if (cap.instance === 'colorTemperatureK') {
                 return {
@@ -466,6 +471,16 @@ export function useLights() {
                   state: {
                     ...cap.state,
                     value: temperatureK
+                  }
+                }
+              }
+              // Also update colorRgb to reflect the temperature change in UI
+              if (cap.instance === 'colorRgb') {
+                return {
+                  ...cap,
+                  state: {
+                    ...cap.state,
+                    value: rgbInt
                   }
                 }
               }

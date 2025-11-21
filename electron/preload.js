@@ -11,7 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   saveApiKey: apiKey => ipcRenderer.invoke('save-api-key', apiKey),
   getTheme: () => ipcRenderer.invoke('get-theme'),
-  setDebugMode: enabled => ipcRenderer.invoke('set-debug-mode', enabled),
   onThemeChange: callback => {
     if (typeof callback !== 'function') {
       return () => {}

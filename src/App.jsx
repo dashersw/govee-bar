@@ -5,7 +5,6 @@ import { useLights } from './hooks/useLights'
 import { Header } from './components/Header'
 import { Scenes } from './components/Scenes'
 import { Rooms } from './components/Rooms'
-import { Footer } from './components/Footer'
 import { Settings } from './components/Settings'
 import './styles/app.css'
 
@@ -18,19 +17,10 @@ const theme = createTheme({
 function App() {
   const [settingsOpened, setSettingsOpened] = useState(false)
   const [hasApiKey, setHasApiKey] = useState(true)
-  const [debugMode, setDebugMode] = useState(false)
   const { devices, loading, error, toggleDevicePower, setDeviceBrightness, setDeviceColorRgb, setDeviceColorTemperatureK, getDevicePowerState, getDeviceBrightness, getDeviceColorRgb, getDeviceColorTemperatureK, refreshAllStates } = useLights()
   
   const onlineCount = devices.filter(d => getDevicePowerState(d) === true).length
   const totalCount = devices.length
-
-  const handleDebugModeChange = async (enabled) => {
-    setDebugMode(enabled)
-    document.documentElement.setAttribute('data-debug-mode', enabled.toString())
-    if (window.electronAPI?.setDebugMode) {
-      await window.electronAPI.setDebugMode(enabled)
-    }
-  }
 
   useEffect(() => {
     // Check if API key exists
@@ -49,9 +39,6 @@ function App() {
       // Default to dark if theme can't be retrieved
       document.documentElement.setAttribute('data-theme', 'dark')
     })
-
-    // Set initial debug mode state
-    document.documentElement.setAttribute('data-debug-mode', 'false')
 
     // Listen for theme changes
     const unsubscribe = window.electronAPI.onThemeChange((theme) => {
@@ -72,8 +59,6 @@ function App() {
           onlineCount={onlineCount} 
           totalCount={totalCount} 
           onSettingsClick={() => setSettingsOpened(true)}
-          debugMode={debugMode}
-          onDebugModeChange={handleDebugModeChange}
         />
         <div className="app-content">
           {!hasApiKey && (
@@ -110,7 +95,6 @@ function App() {
             />
           </div>
         </div>
-        <Footer onRefresh={refreshAllStates} />
         <Settings 
           opened={settingsOpened} 
           onClose={() => setSettingsOpened(false)}

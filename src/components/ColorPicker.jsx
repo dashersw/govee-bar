@@ -51,15 +51,15 @@ function savePresets(presets) {
 // Wheel Constants
 const HUE_SEGMENTS = 24
 const RINGS = 7
-const WHEEL_SIZE = 340
+const WHEEL_SIZE = 360
 const CENTER_X = WHEEL_SIZE / 2
 const CENTER_Y = WHEEL_SIZE / 2
 
-const TEMP_RING_OUTER_RADIUS = 160
-const TEMP_RING_INNER_RADIUS = 145
-const PRESETS_RING_OUTER_RADIUS = 140
-const PRESETS_RING_INNER_RADIUS = 125
-const COLOR_WHEEL_OUTER_RADIUS = 120
+const TEMP_RING_OUTER_RADIUS = 180
+const TEMP_RING_INNER_RADIUS = 160
+const PRESETS_RING_OUTER_RADIUS = 155
+const PRESETS_RING_INNER_RADIUS = 135
+const COLOR_WHEEL_OUTER_RADIUS = 130
 const INNER_RADIUS = 30
 
 const TEMP_MIN = 2000
@@ -232,7 +232,9 @@ export function ColorPicker({
 
   const tempSegments = useMemo(() => {
     const segments = []
-    const anglePerSegment = 360 / TEMP_SEGMENTS
+    const GAP = 1.5 // Gap at end (degrees)
+    const totalAngle = 360 - GAP
+    const anglePerSegment = totalAngle / TEMP_SEGMENTS
 
     for (let i = 0; i < TEMP_SEGMENTS; i++) {
       const startAngle = i * anglePerSegment
@@ -369,21 +371,25 @@ export function ColorPicker({
           endAngle = (i + 1) * anglePerSegment
         }
 
-        // Calculate delete segment (10 degrees at the end of the segment)
+        // Apply visual gap between segments
+        const GAP = 1.5
+        const visualEndAngle = Math.abs(endAngle - startAngle) >= 359.9 ? endAngle : endAngle - GAP
+
+        // Calculate delete segment (20 degrees at the end of the segment)
         const deleteSegmentWidth = 20
-        // Ensure we don't go beyond startAngle (if segment is smaller than 10 degrees)
-        const deleteStartAngle = Math.max(startAngle, endAngle - deleteSegmentWidth)
+        // Ensure we don't go beyond startAngle (if segment is smaller than 20 degrees)
+        const deleteStartAngle = Math.max(startAngle, visualEndAngle - deleteSegmentWidth)
         const deleteD = describeArc(
           CENTER_X,
           CENTER_Y,
           PRESETS_RING_INNER_RADIUS,
           PRESETS_RING_OUTER_RADIUS,
           deleteStartAngle,
-          endAngle
+          visualEndAngle
         )
 
         // Calculate icon position (centered in the delete segment)
-        const deleteMidAngle = (deleteStartAngle + endAngle) / 2
+        const deleteMidAngle = (deleteStartAngle + visualEndAngle) / 2
         const midRadius = (PRESETS_RING_INNER_RADIUS + PRESETS_RING_OUTER_RADIUS) / 2
         const deleteButtonPos = polarToCartesian(CENTER_X, CENTER_Y, midRadius, deleteMidAngle)
 
@@ -393,8 +399,8 @@ export function ColorPicker({
 
         // Top half: Clockwise (Start -> End)
         // Bottom half: Counter-Clockwise (End -> Start) to flip text
-        const textPathStartAngle = isBottomHalf ? endAngle : deleteStartAngle
-        const textPathEndAngle = isBottomHalf ? deleteStartAngle : endAngle
+        const textPathStartAngle = isBottomHalf ? visualEndAngle : deleteStartAngle
+        const textPathEndAngle = isBottomHalf ? deleteStartAngle : visualEndAngle
 
         const p1 = polarToCartesian(CENTER_X, CENTER_Y, midRadius, textPathStartAngle)
         const p2 = polarToCartesian(CENTER_X, CENTER_Y, midRadius, textPathEndAngle)
@@ -415,12 +421,33 @@ export function ColorPicker({
           textPathId,
           textPathD,
           isBottomHalf,
-          d: describeArc(CENTER_X, CENTER_Y, PRESETS_RING_INNER_RADIUS, PRESETS_RING_OUTER_RADIUS, startAngle, endAngle)
+          d: describeArc(
+            CENTER_X,
+            CENTER_Y,
+            PRESETS_RING_INNER_RADIUS,
+            PRESETS_RING_OUTER_RADIUS,
+            startAngle,
+            visualEndAngle
+          )
         }
       })
       .filter(Boolean) // Filter nulls
   }, [presets, animationProgress])
 
+  const tempLabelTextPathD = useMemo(() => {
+    const radius = (TEMP_RING_INNER_RADIUS + TEMP_RING_OUTER_RADIUS) / 2
+    const p1 = polarToCartesian(CENTER_X, CENTER_Y, radius, 276)
+    const p2 = polarToCartesian(CENTER_X, CENTER_Y, radius, 396)
+    return `M ${p1.x} ${p1.y} A ${radius} ${radius} 0 0 1 ${p2.x} ${p2.y}`
+  }, [])
+
+  const presetLabelTextPathD = useMemo(() => {
+    const radius = (PRESETS_RING_INNER_RADIUS + PRESETS_RING_OUTER_RADIUS) / 2
+    // Center 40 (Top-Right). Range -20 to 100.
+    const p1 = polarToCartesian(CENTER_X, CENTER_Y, radius, -40)
+    const p2 = polarToCartesian(CENTER_X, CENTER_Y, radius, 80)
+    return `M ${p1.x} ${p1.y} A ${radius} ${radius} 0 0 1 ${p2.x} ${p2.y}`
+  }, [])
   const handleTemperatureChangeDebounced = useCallback(
     async value => {
       if (changingTemperature) return
@@ -478,9 +505,16 @@ export function ColorPicker({
   const handleTempSegmentClick = useCallback(
     temp => {
       setLocalTemperatureK(temp)
+
+      // Update color preview
+      const rgb = kelvinToRgb(temp)
+      const rgbInt = rgbToRgbInt(rgb.r, rgb.g, rgb.b)
+      setSelectedRgbInt(rgbInt)
+      updateHsvFromRgbInt(rgbInt)
+
       handleTemperatureChangeEnd(temp)
     },
-    [handleTemperatureChangeEnd]
+    [handleTemperatureChangeEnd, updateHsvFromRgbInt]
   )
 
   const handleSegmentMouseDown = useCallback(
@@ -716,7 +750,7 @@ export function ColorPicker({
               <circle
                 cx={CENTER_X}
                 cy={CENTER_Y}
-                r={INNER_RADIUS - 2}
+                r={INNER_RADIUS - 4}
                 fill={currentHex}
                 style={{ cursor: 'pointer' }}
                 onMouseDown={e => {
@@ -793,6 +827,22 @@ export function ColorPicker({
                 <title>{seg.temp}K</title>
               </path>
             ))}
+
+            {/* Temperature Label Overlay */}
+            <defs>
+              <path id="temp-label-path" d={tempLabelTextPathD} />
+            </defs>
+            <text
+              fill="#666"
+              fontSize="14"
+              fontWeight="bold"
+              dy="5"
+              style={{ pointerEvents: 'none', fontFamily: 'SF Compact, -apple-system, BlinkMacSystemFont, sans-serif' }}
+            >
+              <textPath href="#temp-label-path" startOffset="50%" textAnchor="middle">
+                TEMPERATURE
+              </textPath>
+            </text>
 
             {/* Presets Background Ring */}
             <path
@@ -877,7 +927,8 @@ export function ColorPicker({
                   style={{
                     opacity: 0,
                     pointerEvents: 'none',
-                    transition: 'opacity 0.2s ease'
+                    transition: 'opacity 0.2s ease',
+                    fontFamily: 'SF Compact, -apple-system, BlinkMacSystemFont, sans-serif'
                   }}
                 >
                   <textPath href={`#${preset.textPathId}`} startOffset="50%" textAnchor="middle">
@@ -886,6 +937,22 @@ export function ColorPicker({
                 </text>
               </g>
             ))}
+
+            {/* Presets Label Overlay */}
+            <defs>
+              <path id="preset-label-path" d={presetLabelTextPathD} />
+            </defs>
+            <text
+              fill="#666"
+              fontSize="14"
+              fontWeight="bold"
+              dy="5"
+              style={{ pointerEvents: 'none', fontFamily: 'SF Compact, -apple-system, BlinkMacSystemFont, sans-serif' }}
+            >
+              <textPath href="#preset-label-path" startOffset="50%" textAnchor="middle">
+                PRESETS
+              </textPath>
+            </text>
           </svg>
         </div>
         {/* </> */}

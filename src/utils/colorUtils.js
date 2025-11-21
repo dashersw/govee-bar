@@ -134,30 +134,35 @@ export function rgbToHsv(r, g, b) {
 
 /**
  * Convert Color Temperature (Kelvin) to RGB
- * Approximation based on Tanner Helland's algorithm
- * @param {number} k - Color temperature in Kelvin (1000-40000)
+ * Simple gradient from orange to white with control point at 80%
+ * @param {number} k - Color temperature in Kelvin (2000-9000)
  * @returns {{r: number, g: number, b: number}} RGB object
  */
 export function kelvinToRgb(k) {
-  const temp = k / 100
+  const TEMP_MIN = 2000
+  const TEMP_MAX = 9000
+  const TEMP_RANGE = TEMP_MAX - TEMP_MIN
+
+  // Normalize temperature to 0-1 range
+  const t = Math.max(0, Math.min(1, (k - TEMP_MIN) / TEMP_RANGE))
+
+  // Control point at 80% - orange stays dominant until here
+  const controlPoint = 0.2
+
   let r, g, b
 
-  if (temp <= 66) {
+  if (t < controlPoint) {
+    // 0-80%: Stay mostly orange, slight lightening
+    const progress = t / controlPoint
     r = 255
-    g = temp
-    g = 99.4708025861 * Math.log(g) - 161.1195681661
-    if (temp <= 19) {
-      b = 0
-    } else {
-      b = temp - 10
-      b = 138.5177312231 * Math.log(b) - 305.0447927307
-    }
+    g = 120 + progress * 100 // 120 to 220
+    b = 0
   } else {
-    r = temp - 60
-    r = 329.698727446 * Math.pow(r, -0.1332047592)
-    g = temp - 60
-    g = 288.1221695283 * Math.pow(g, -0.0755148492)
-    b = 255
+    // 80-100%: Transition from orange to white
+    const progress = (t - controlPoint) / (1 - controlPoint)
+    r = 255
+    g = 220 + progress * 35 // 220 to 255
+    b = progress * 255 // 0 to 255
   }
 
   return {
