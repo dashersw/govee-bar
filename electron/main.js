@@ -198,7 +198,8 @@ function createWindow() {
     if (liquidGlass && process.platform === 'darwin') {
       try {
         liquidGlass.addView(mainWindow.getNativeWindowHandle(), {
-          cornerRadius: 12 // Match border-radius
+          cornerRadius: 12, // Match border-radius
+          tintColor: '#0000006f'
         })
       } catch (error) {
         // Fallback to native vibrancy
